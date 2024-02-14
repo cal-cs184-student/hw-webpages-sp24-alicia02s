@@ -2,6 +2,57 @@
 	<head>
 	</head>
 	<body>
-		Homework 1 index.html here
+		<h1>OVERVIEW</h1>
+<p>In this homework, we implemented some crucial concepts that we have been talking about in lecture. We started with the bare minimum, using line tests to see if the center of a pixel was inside of the triangle we wanted to rasterize, and worked our way through supersampling, transforms, barycentric coordinates, and even texture mapping. After completing this homework, I definitely have a much deeper understanding of these topics. Going to lecture and hearing about barycentric coordinates is much different than being in the trenches, implementing it yourself. I was arguably a little bit too excited about having a perfectly smooth gradient inside of a triangle. While this homework was definitely challenging, being able to work through my own bugs and mistakes (the ordering of the triangle’s vertices stumped me for quite a while) allowed me to correct my understanding of these topics in a way that is only really possible through experience. 
+</p>
+<h1>TASK 1</h1>
+<p>In order to rasterize triangles for this task, I first determine the minimum and maximum x and y pixel values to determine the range of pixels we should be looking at. I also took the cross product of the vectors between point 1 and point 0, and point 2 and point 1 in order to determine if our line tests in the future should be done clockwise or counter-clockwise.  Using two for loops, we iterate through the pixels in this range, and for the pixels that are within the width and height of the frame buffer, we calculate the center of that pixel. Based on the cross product calculated above, we can correctly calculate the three line tests described in lecture to determine if the center of the pixel is in the triangle. If all of these line tests are greater than or equal to zero, than we know that the point is either inside the triangle or on the border. In both of these cases, we want to rasterize this point so we call the helper function fill_pixel().
+</p>
+<p>This solution is no worse than one that checks each sample within the bounding box of the triangle, because it does just that. I calculate the minimum x and y pixel values by taking the floor of the smallest of the three values. I calculate the maximum x and y pixel values by taking the ceiling of the largest of the three values. This gives me the smallest x, y pixel the triangle could be in to the largest x, y pixel the triangle could be in. By having two for loops to iterate through all the x values in this range, and all the y values in this range, we are checking each pixel within the square determined by the bounds of the triangle we are given.
+</p>
+
+<p>I thought this was an interesting part to take a screenshot of. It looks as though because of where we were sampling, the narrow tip of this triangle missed the center of a few pixels, leaving a few on the outer edge separated from the rest of the triangle. This is a clear example of aliasing, and hopefully we can resolve it in future tasks. 
+</p>
+<h1>TASK 2</h1>
+<p>In order to implement supersampling, I first dealt with the changes to buffer memory. In both set_sample_rate() and set_framebuffer_target(), I changed the sample_buffer.resize() lines to have the height and width also multiplied by the sample rate. This allows me to have enough space in the sample buffer for all of my supersampled points. Once there was space for all of my samples in memory, I moved on to implementing my supersampling algorithm in the rasterize_triangle() function. Working with the code I already had written, I decided to add another double for loop inside of my already existing double for loop. The original double for loop was in place to iterate through the pixels within the boxed region of the triangle, and this additional double for loop is to iterate through the different samples we are taking from that pixel. For both x and y, we start at 1/(2 * sqrt(sample_rate)) and continue as long as the value is less than one, increasing by 1/sqrt(sample_rate) each time. We can add these x and y values to the ones of the pixel to get the location of our sample and determine if it is in the triangle or not. If the sample is in the triangle, we no longer want to call fill_pixel due to the altered size of the sample_buffer, instead we want to manipulate the sample buffer directly by determining the x and y coordinates after supersampling and set that space in the buffer to the color passed in. 
+</p>
+
+<p>Above, we can see the same point with three different sampling rates. As the sampling rate increases, we get a smoother blend and less obvious jaggies. 
+</p>
+<h1>TASK 3</h1>
+
+<p>When I was playing around with cubeman, I decided to play around with different rotations and their placements to see what happened. I decided to use a few different transformations to make cubeman look like he was doing jumping-jacks.
+</p>
+
+
+
+
+<h1>TASK 4</h1>
+
+<p>Barycentric coordinates are a way of describing where a point is located in a triangle based on its vertices. The way we used them for this function was to determine what color value a pixel should be based on where it is in the triangle. Barycentric coordinates were extremely useful for this, and allowed us to determine how far away from each vertex we were which in turn allowed us to decide what color to make the pixel.
+</p>
+
+<h1>TASK 5</h1>
+<p>Pixel sampling is essentially taking a pixel on our screen, and determining what color it should display given a certain texture map. In order to implement this in rasterize_textured_triangle(), we start with the code we’ve already written. With this as a starting point, we already know that we can determine if the point (in x,y space) is inside of the triangle passed in as well as the alpha, beta, and gamma coefficients for the barycentric coordinates of this triangle (again, in x,y space). Before we start sampling, we need to convert this x,y point into u,v coordinates, in other words we need to move our coordinates from pixel space to texel space. Since we have the three u,v triangle points relative to the x,y triangle points, we can use our barycentric coordinates to find the correct u,v position since proportionally it will be in the same spot in the triangle as the x,y coordinates. From here, we can either use the nearest sample or bilinear sampling. For both algorithms, we start by multiplying u, v by the width and height of the mipmap level since they are decimals ranging between 0 and 1. To sample the nearest texel, we round our u value up or down to the nearest integer based on the typical rounding rules - if the decimal is >= 0.5 we round up, otherwise we round down. The same is done for the v value, and this new v, u coordinate is where we sample the texel. To use bilinear sampling, we sample the 4 closest texels to our point, finding the necessary coordinates by either rounding up or rounding down our u, v values. Next we calculate our s and t values, where s is the decimal of the u value, and t is the decimal of the v value. Using these values and the texels we sampled, we can do a series of linear interpolations to determine the color value that should be returned. 
+</p>
+
+<p>Above, we see the image rasterized without supersampling. The left picture uses nearest pixel sampling, while the right uses bilinear sampling. It is clear that bilinear sampling is a much better option, the lines appear continuous and much more smooth with less obvious jaggies.
+</p>
+<p>Here, we see the image rasterized with a supersampling rate of 16. Again, the left is using nearest pixel sampling and the right utilizes bilinear sampling. While the difference between the two is not as obvious as the above case, we can still see that the bilinearly sampled image is more continuous and has less jaggies. In order to observe a significant difference between nearest pixel sampling and bilinear sampling, the colors need to be changing rapidly within a small area. Nearest pixel sampling will miss out on certain colors, while bilinear sampling will provide an approximation for the pixel color instead.
+</p>
+
+<h1>TASK 6</h1>
+<p>Level sampling is a way for us to further prevent aliasing, especially in images that have perspective. Level sampling allows us to render what appears closer to us differently than what appears further away, allowing us to reduce the amount of visible jaggies. In order to implement this for texture mapping, I was able to build off of the code written in the previous part, since it was essentially level sampling at the 0th level. I first dealt with the new values i needed to calculate. In rasterize_textured_triangle I built off of the barycentric coordinates to calculate the dx_uv and dy_uv vectors passed into the sample function. Inside the sample function, the get_level helper function is called immediately to determine the level of the mipmap. This helper will return 0 if the lsm is set to L_ZERO, otherwise continuing on with some calculations. The various dx/dy/du/dv values we need are calculated by subtracting the vector containing our u,v coordinates from either dx_uv or dy_uv, and from there we use the theorem presented in lecture to compute a decimal value for the level. When we return back to the sample function, the decimal returned is rounded to the nearest integer and bounded (due to memory restrictions) and if the lsm is set to L_ZERO or L_NEAREST, the appropriate sample_nearest/bilinear function is called and the texel is returned. If it is the case that the lsm is set to L_LINEAR, we will either sample_nearest or sample_bilinear for the current level, as well as the level above. Once we have these two colors, we can use linear interpolation to determine the texel color, with the decimal being the remainder of what was originally returned by get_level.
+</p>
+<p>Between these three sampling techniques, you can accomplish quite a bit. Although level sampling, especially in the L_LINEAR case, can create really smooth, beautiful graphics it has the greatest memory demand. Supersampling can be really effective, although as you increase the sampling rate your memory demand increases as well, so it's a tradeoff that must be considered. I would consider point sampling, especially bilinear sampling, a decent middle ground between these first two options. There is a bit of memory required, but not nearly as much as level sampling requires. And the linear interpolations allow us to approximate things quite nicely with just a few calculations - much quicker than supersampling takes to achieve the same effect.
+</p>
+
+<p>Unfortunately, when trying to use my own image (pictured above) to showcase the different capabilities, I kept running into an error where the message “could not load image ../../img/peppa.png. I tried troubleshooting this with different images of different sizes and complexities, however all resulted in the same error. I’m not sure what may have caused this, but I am very sleep deprived and this is due in an hour so I used test1.svg for the four images: 
+</p>
+	<p>This image shows L_ZERO and P_NEAREST</p>
+  <p>This image shows L_ZERO and P_LINEAR</p>
+<p>This image shows L_NEAREST and P_NEAREST</p>
+<p>This image shows L_NEAREST and P_LINEAR</p>
+
 	</body>
 </html>
